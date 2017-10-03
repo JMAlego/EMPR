@@ -4,6 +4,8 @@
 
 *Team Members: Jacob Allen & Kia Alderson (Currently)*
 
+## Contents
+
 <!-- TOC -->
 
 - [EMPR - Embedded Systems Project](#empr---embedded-systems-project)
