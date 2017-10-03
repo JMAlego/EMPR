@@ -1,6 +1,6 @@
 # EMPR - Embedded Systems Project
 
-***Computer Science BEng/MEng Stage 2 EMPR (Embedded Systems Project)***
+***University of York, Computer Science BEng/MEng Stage 2 EMPR (Embedded Systems Project)***
 
 *Team Members: Jacob Allen & Kia Alderson (Currently)*
 
