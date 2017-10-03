@@ -6,17 +6,12 @@
 
 ## Contents
 
-<!-- TOC -->
-
 - [EMPR - Embedded Systems Project](#empr---embedded-systems-project)
-  - [Contents](#contents)
   - [1. Mini Projects](#1-mini-projects)
     - [1.1. Mini Project 1](#11-mini-project-1)
     - [1.2. Mini Project 2](#12-mini-project-2)
     - [1.3. Mini Project 3](#13-mini-project-3)
   - [2. Main Project](#2-main-project)
-
-<!-- /TOC -->
 
 ## 1. Mini Projects
 
