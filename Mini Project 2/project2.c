@@ -18,6 +18,9 @@
 #define LED3 0x200000
 #define LED4 0x800000
 
+#define LCD_ADDRESS 0x00
+#define KEYPAD_ADDRESS 0x21
+
 const int leds[4] = {LED1, LED2, LED3, LED4};
 
 volatile unsigned long SysTickCnt;
@@ -102,41 +105,89 @@ void print(char string[])
   UART_Send(LPC_UART0, (uint8_t*) string, sizeofStr(string), BLOCKING);
 }
 
+Status I2C_SendBytes(unsigned char address, unsigned char * data, unsigned int data_length){
+  I2C_M_SETUP_Type transferSetup;
+  transferSetup.rx_data = NULL;
+  transferSetup.retransmissions_max = 0;
+  transferSetup.rx_length = 0;
+  transferSetup.sl_addr7bit = (uint32_t) address;
+  transferSetup.tx_data = data;
+  transferSetup.tx_length = (uint32_t) data_length;
+  return I2C_MasterTransferData(LPC_I2C1, &transferSetup, I2C_TRANSFER_POLLING);
+}
+
+Status LCD_Init(void){
+  unsigned char data[11] = {0x00,0x34,0x0c,0x06,0x35,0x04,0x10,0x42,0x9f,0x34,0x02};
+  return I2C_SendBytes(LCD_ADDRESS, data, 11);
+}
+
+Status LCD_Clear_Display(void){
+  unsigned char data[2];
+  data[0] = 0x00;
+  data[1] = 0x01;
+  Status result = I2C_SendBytes(LCD_ADDRESS, data, 2);
+  Delay(200);
+  return result;
+}
+
+Status LCD_Write_Char(unsigned char character){
+  unsigned char data[2];
+  data[0] = 0x40;
+  data[1] = character;
+  return I2C_SendBytes(LCD_ADDRESS, data, 2);
+}
+
+Status LCD_Write_Address(unsigned char address){
+  unsigned char data[2];
+  data[0] = 0x00;
+  data[1] = address;
+  return I2C_SendBytes(LCD_ADDRESS, data, 2);
+}
+
 int main(void)
 {
   SysTick_Config(SystemCoreClock/1000 - 1);
   GPIO_SetDir(1, ALL_LEDS, 1);
   initPrint();
   initI2C();
-#ifdef STAGE1
+
+  #ifdef STAGE1
+
   print("Scanning I2C...\r\n");
+
   unsigned char nullByte[1] = "\0";
   unsigned char successfulAddresses[128];
   unsigned char addressCounter;
   unsigned char successes = 0;
+
   for(addressCounter = 0; addressCounter < 128; addressCounter++){
-    I2C_M_SETUP_Type transferSetup;
-    transferSetup.rx_data = NULL;
-    transferSetup.retransmissions_max = 0;
-    transferSetup.rx_length = 0;
-    transferSetup.sl_addr7bit = (uint32_t) addressCounter;
-    transferSetup.tx_data = nullByte;
-    transferSetup.tx_length = 1;
-    Status result = I2C_MasterTransferData(LPC_I2C1, &transferSetup, I2C_TRANSFER_POLLING);
+    Status result = I2C_SendBytes(addressCounter, nullByte, 1);
     if(result == SUCCESS){
       successfulAddresses[successes] = addressCounter;
       successes++;
     }
   }
+
   char strDevicesConnected[36];
   sprintf(strDevicesConnected, "%d devices connected to i2c bus\r\n", successes);
   print(strDevicesConnected);
+
   unsigned char index;
   for(index = 0; index < successes; index++){
     sprintf(strDevicesConnected, "I2C device at address 0x%x\r\n", successfulAddresses[index]);
     print(strDevicesConnected);
   }
-#endif
+
+  #endif
+
+  #ifdef STAGE2
+
+  LCD_Init();
+  LCD_Clear_Display();
+  LCD_Write_Address(0x80);
+  LCD_Write_Char(0x64);
+
+  #endif
 
   return 0;
 }
