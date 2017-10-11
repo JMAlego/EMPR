@@ -10,7 +10,7 @@
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0')
 
-#define STAGE1
+#define STAGE2
 
 #define ALL_LEDS 0xB40000
 #define LED1 0x040000
@@ -18,7 +18,8 @@
 #define LED3 0x200000
 #define LED4 0x800000
 
-#define LCD_ADDRESS 0x00
+#define LCD_ADDRESS 0x3b
+#define EIGHT_SEG_ADDRESS 0x38
 #define KEYPAD_ADDRESS 0x21
 
 const int leds[4] = {LED1, LED2, LED3, LED4};
@@ -87,7 +88,7 @@ void initI2C(void)
   PinCfg.Pinnum = 1;
   PINSEL_ConfigPin(&PinCfg);
 
-  I2C_Init(LPC_I2C1, 100);
+  I2C_Init(LPC_I2C1, 100000);
 
   I2C_Cmd(LPC_I2C1, ENABLE);
 }
@@ -118,14 +119,7 @@ Status I2C_SendBytes(unsigned char address, unsigned char * data, unsigned int d
 
 Status LCD_Init(void){
   unsigned char data[11] = {0x00,0x34,0x0c,0x06,0x35,0x04,0x10,0x42,0x9f,0x34,0x02};
-  return I2C_SendBytes(LCD_ADDRESS, data, 11);
-}
-
-Status LCD_Clear_Display(void){
-  unsigned char data[2];
-  data[0] = 0x00;
-  data[1] = 0x01;
-  Status result = I2C_SendBytes(LCD_ADDRESS, data, 2);
+  Status result = I2C_SendBytes(LCD_ADDRESS, data, 11);
   Delay(200);
   return result;
 }
@@ -137,11 +131,55 @@ Status LCD_Write_Char(unsigned char character){
   return I2C_SendBytes(LCD_ADDRESS, data, 2);
 }
 
+Status LCD_Write_Chars(unsigned char * characters, int length){
+  unsigned char data[length*2];
+  int i;
+  for(i = 0; i < length; i++){
+    if(i == length - 1){
+      data[i*2] = 0x40;
+    }else{
+      data[i*2] = 0xC0;
+    }
+    data[i*2 + 1] = characters[i];
+  }
+  return I2C_SendBytes(LCD_ADDRESS, data, length * 2);
+}
+
 Status LCD_Write_Address(unsigned char address){
   unsigned char data[2];
   data[0] = 0x00;
-  data[1] = address;
+  data[1] = 0x80 | address;
   return I2C_SendBytes(LCD_ADDRESS, data, 2);
+}
+
+Status LCD_Clear_Display(void){
+  unsigned char data[2];
+  Status result = SUCCESS;
+  data[0] = 0x00;
+  data[1] = 0x08;
+  if (!I2C_SendBytes(LCD_ADDRESS, data, 2))
+    result = ERROR;
+  //data[0] = 0x00;
+  //data[1] = 0x06;
+  //if (!I2C_SendBytes(LCD_ADDRESS, data, 2))
+  //  result = ERROR;
+  if (!LCD_Write_Address(0x00))
+    result = ERROR;
+  unsigned char chars[20] = {0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0};
+  if (!LCD_Write_Chars(chars, 20))
+    result = ERROR;
+  if (!LCD_Write_Address(0x40))
+    result = ERROR;
+  if (!LCD_Write_Chars(chars, 20))
+    result = ERROR;
+  if (!LCD_Write_Address(0x00))
+    result = ERROR;
+  data[0] = 0x00;
+  data[1] = 0x0C;
+  if (!I2C_SendBytes(LCD_ADDRESS, data, 2))
+    result = ERROR;
+  Delay(200);
+  return result;
 }
 
 int main(void)
@@ -182,10 +220,22 @@ int main(void)
 
   #ifdef STAGE2
 
+  print("Start LCD\r\n");
   LCD_Init();
   LCD_Clear_Display();
-  LCD_Write_Address(0x80);
-  LCD_Write_Char(0x64);
+  unsigned char stringHelloWorld[12] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF, 0xA0, 0xD7, 0xCF, 0xD2, 0xCC, 0xC4, 0xA1};
+  LCD_Write_Chars(stringHelloWorld, 12);
+  Delay(1000);
+  LCD_Clear_Display();
+  Delay(1000);
+  unsigned char stringHello[5] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF};
+  unsigned char stringWorld[5] = {0xD7, 0xCF, 0xD2, 0xCC, 0xC4};
+  LCD_Write_Chars(stringHello, 5);
+  LCD_Write_Address(0x40);
+  LCD_Write_Chars(stringWorld, 5);
+  Delay(1000);
+  LCD_Clear_Display();
+  print("End LCD\r\n");
 
   #endif
 
