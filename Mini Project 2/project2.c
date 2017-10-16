@@ -10,7 +10,7 @@
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0')
 
-#define STAGE2
+#define STAGE3
 
 #define ALL_LEDS 0xB40000
 #define LED1 0x040000
@@ -23,6 +23,15 @@
 #define KEYPAD_ADDRESS 0x21
 
 const int leds[4] = {LED1, LED2, LED3, LED4};
+
+const char keypad[4][4] = {
+  {'D','#','0','*'},
+  {'C','9','8','7'},
+  {'B','6','5','4'},
+  {'A','3','2','1'}
+};
+
+unsigned char KEYPAD_ReadReset = 4;
 
 volatile unsigned long SysTickCnt;
 
@@ -117,6 +126,17 @@ Status I2C_SendBytes(unsigned char address, unsigned char * data, unsigned int d
   return I2C_MasterTransferData(LPC_I2C1, &transferSetup, I2C_TRANSFER_POLLING);
 }
 
+Status I2C_ReceiveBytes(unsigned char address, unsigned char * data, unsigned int data_length){
+  I2C_M_SETUP_Type transferSetup;
+  transferSetup.rx_data = data;
+  transferSetup.retransmissions_max = 0;
+  transferSetup.rx_length = (uint32_t) data_length;
+  transferSetup.sl_addr7bit = (uint32_t) address;
+  transferSetup.tx_data = NULL;
+  transferSetup.tx_length = 0;
+  return I2C_MasterTransferData(LPC_I2C1, &transferSetup, I2C_TRANSFER_POLLING);
+}
+
 Status LCD_Init(void){
   unsigned char data[11] = {0x00,0x34,0x0c,0x06,0x35,0x04,0x10,0x42,0x9f,0x34,0x02};
   Status result = I2C_SendBytes(LCD_ADDRESS, data, 11);
@@ -182,6 +202,77 @@ Status LCD_Clear_Display(void){
   return result;
 }
 
+unsigned char KEYPAD_SeparateCols(uint8_t data){
+  return (0xf0 & data) >> 4;
+}
+
+unsigned char KEYPAD_SeparateRows(uint8_t data){
+  return 0x0f & data;
+}
+
+unsigned char KEYPAD_1HotToChar(uint8_t data){
+  if(data == 0xe) return 0;
+  else if(data == 0xd) return 1;
+  else if(data == 0xb) return 2;
+  else if(data == 0x7) return 3;
+  else return 4;
+}
+
+void KEYPAD_WriteRow(char row){
+  unsigned char data[1];
+  row = row & 0x0f;
+  if(row == 0) data[0] = 0xfe;
+  else if(row == 1) data[0] = 0xfd;
+  else if(row == 2) data[0] = 0xfb;
+  else if(row == 3) data[0] = 0xf7;
+  else data[0] = 0xff;
+  I2C_SendBytes(KEYPAD_ADDRESS, data, 1);
+}
+
+char KEYPAD_ReadCol(){
+  unsigned char data[1];
+  I2C_ReceiveBytes(KEYPAD_ADDRESS, data, 1);
+  return KEYPAD_1HotToChar(KEYPAD_SeparateCols(data[0]));
+}
+
+char KEYPAD_ReadKey(){
+  char current_row = 0;
+  char return_char = '\0';
+  while(return_char == '\0'){
+    KEYPAD_WriteRow(current_row);
+    char col_result = KEYPAD_ReadCol();
+    if(col_result == 4 && KEYPAD_ReadReset == current_row){
+      KEYPAD_ReadReset = 4;
+    }else if (KEYPAD_ReadReset == 4 && col_result != 4){
+      return_char = keypad[(int) current_row][(int) col_result];
+      KEYPAD_ReadReset = current_row;
+    }
+    current_row = (current_row + 1) % 4;
+  }
+  return return_char;
+}
+
+char LCD_EncodeASCII(char character){
+  if(character == ' ') return 0xa0;
+  if(character > 47 && character < 64){
+    return character + 128;
+  }
+  if(character == '@') return 0x80;
+  if(character > 64 && character < 91){
+    return character + 128;
+  }
+
+  return 0x56;
+}
+
+void LCD_EncodeASCIIString(char * string){
+  int i = 0;
+  while(string[i] != '\0'){
+    string[i] = LCD_EncodeASCII(string[i]);
+    i++;
+  }
+}
+
 int main(void)
 {
   SysTick_Config(SystemCoreClock/1000 - 1);
@@ -208,7 +299,7 @@ int main(void)
 
   char strDevicesConnected[36];
   sprintf(strDevicesConnected, "%d devices connected to i2c bus\r\n", successes);
-  print(strDevicesConnected);
+  print(strDevicesConnecteI2C_SendBytes(LCD_ADDRESS, data, length * 2);d);
 
   unsigned char index;
   for(index = 0; index < successes; index++){
@@ -237,6 +328,22 @@ int main(void)
   LCD_Clear_Display();
   print("End LCD\r\n");
 
+  #endif
+
+  #ifdef STAGE3
+  LCD_Init();
+  LCD_Clear_Display();
+  print("Start Keypad\r\n");
+  char toprint[4] = " \r\n";
+  int i;
+  for(i = 0; i < 16; i++){
+    toprint[0] = KEYPAD_ReadKey();
+    print(toprint);
+    unsigned char forLCD[1];
+    forLCD[0] = LCD_EncodeASCII(toprint[0]);
+    LCD_Write_Chars(forLCD, 1);
+  }
+  print("Finished Keypad\r\n");
   #endif
 
   return 0;
