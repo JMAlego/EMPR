@@ -3,6 +3,7 @@
 #include "lpc17xx_i2c.h"
 #include "lpc17xx_pinsel.h"
 #include <stdio.h>
+#include <math.h>
 
 #define NIBBLE_TO_BINARY(byte)  \
   (byte & 0x08 ? '1' : '0'), \
@@ -10,7 +11,7 @@
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0')
 
-#define STAGE3
+#define STAGE4
 
 #define ALL_LEDS 0xB40000
 #define LED1 0x040000
@@ -253,12 +254,14 @@ char KEYPAD_ReadKey(){
 }
 
 char LCD_EncodeASCII(char character){
-  if(character == ' ') return 0xa0;
-  if(character > 47 && character < 64){
+  if(character > 31 && character < 64){
     return character + 128;
   }
   if(character == '@') return 0x80;
   if(character > 64 && character < 91){
+    return character + 128;
+  }
+  if(character > 96 && character < 123){
     return character + 128;
   }
 
@@ -271,6 +274,41 @@ void LCD_EncodeASCIIString(char * string){
     string[i] = LCD_EncodeASCII(string[i]);
     i++;
   }
+}
+
+char charToNumChar(char numchar){
+  if(numchar == '1') return 1;
+  else if(numchar == '2') return 2;
+  else if(numchar == '3') return 3;
+  else if(numchar == '4') return 4;
+  else if(numchar == '5') return 5;
+  else if(numchar == '6') return 6;
+  else if(numchar == '7') return 7;
+  else if(numchar == '8') return 8;
+  else if(numchar == '9') return 9;
+  return 0;
+}
+
+long long stringToLongLong(char * string){
+  int count = 0;
+  long long output = 0;
+  while(string[count] != '\0')
+    count++;
+  int i = 0;
+  while(i < count){
+    output += pow(10, count - i - 1) * charToNumChar(string[i]);
+    i++;
+  }
+  return output;
+}
+
+void strcpy(char * to_string, char * from_string){
+  int i = 0;
+  while(from_string[i] != '\0'){
+    to_string[i] = from_string[i];
+    i++;
+  }
+  to_string[i] = '\0';
 }
 
 int main(void)
@@ -295,11 +333,11 @@ int main(void)
       successfulAddresses[successes] = addressCounter;
       successes++;
     }
-  }
+  }I2C_SendBytes(LCD_ADDRESS, data, length * 2);
 
   char strDevicesConnected[36];
   sprintf(strDevicesConnected, "%d devices connected to i2c bus\r\n", successes);
-  print(strDevicesConnecteI2C_SendBytes(LCD_ADDRESS, data, length * 2);d);
+  print(strDevicesConnected);
 
   unsigned char index;
   for(index = 0; index < successes; index++){
@@ -346,5 +384,179 @@ int main(void)
   print("Finished Keypad\r\n");
   #endif
 
+
+
+
+
+
+  #ifdef STAGE4
+  print("------------------------------------------------------\r\n");
+  print("Start Calculator\r\n");
+  print("A -> +\r\n");
+  print("B -> -\r\n");
+  print("C -> /\r\n");
+  print("D -> Clear All\r\n");
+  print("# -> =\r\n");
+  print("Enter a number, then operation\r\n");
+  print("Screen will display last key press \r\n");
+  print("------------------------------------------------------\r\n");
+  LCD_Init();
+  long long answer = 0;
+  char operator = '+';
+  char buffer[17] = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+                     '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' };
+  unsigned char buffer_pointer = 0;
+  char input = '\0';
+  char last_input_was_number = 0;
+  char error_string[17];
+  LCD_Clear_Display();
+
+  while(1){
+    input = KEYPAD_ReadKey();
+    if(input < 58 && input > 47 && buffer_pointer < 16){
+      if(last_input_was_number == 0)
+        LCD_Clear_Display();
+      last_input_was_number = 1;
+      buffer[buffer_pointer] = input;
+      buffer_pointer++;
+      unsigned char print_character[1];
+      print_character[0] = LCD_EncodeASCII(input);
+      LCD_Write_Chars(print_character, 1);
+    } else {
+      if (input == 'D') {
+        answer = 0;
+        unsigned char i;
+        for (i = 0; i < 17; i++) buffer[i] = '\0';
+        buffer_pointer = 0;
+        operator = '+';
+        LCD_Clear_Display();
+      } else {
+        if(operator == '+'){
+          answer += stringToLongLong(buffer);
+        }else if(operator == '-'){
+          answer -= stringToLongLong(buffer);
+        }else if(operator == '/'){
+          if(stringToLongLong(buffer) != 0){
+            answer /= stringToLongLong(buffer);
+          }else{
+            answer = 0;
+            strcpy(error_string, "DIV BY 0 ERROR");
+          }
+        }else if(operator == '*'){
+          answer *= stringToLongLong(buffer);
+        }
+
+        if (input == 'A'){
+          operator = '+';
+        } else if (input == 'B'){
+          operator = '-';
+        } else if (input == 'C'){
+          operator = '/';
+        } else if (input == 'D'){
+          answer = 0;
+          operator = '+';
+        } else if (input == '*'){
+          operator = '*';
+        } else if (input == '#'){
+          operator = '=';
+        }
+        unsigned char i;
+        for (i = 0; i < 17; i++) buffer[i] = '\0';
+        buffer_pointer = 0;
+        LCD_Clear_Display();
+        unsigned char print_operator[1];
+        print_operator[0] = LCD_EncodeASCII(operator);
+        LCD_Write_Chars(print_operator, 1);
+        Delay(300);
+        LCD_Clear_Display();
+        char print_answer[20];
+        sprintf(print_answer, "%lld", answer);
+        LCD_EncodeASCIIString(print_answer);
+        LCD_Write_Chars((unsigned char *) print_answer, sizeofStr(print_answer) - 1);
+        if(operator == '='){
+          if(error_string[0] != '\0'){
+            LCD_Write_Address(0x40);
+            LCD_EncodeASCIIString(error_string);
+            LCD_Write_Chars((unsigned char *) error_string, sizeofStr(error_string) - 1);
+            LCD_Write_Address(0x00);
+            error_string[0] = '\0';
+          }
+        }
+        last_input_was_number = 0;
+      }
+    }
+  }
+
+  #endif
+
+
+  #ifdef DEMO
+
+  print("Starting DEMO\r\n");
+  print("Scanning I2C...\r\n");
+
+  unsigned char nullByte[1] = "\0";
+  unsigned char successfulAddresses[128];
+  unsigned char addressCounter;
+  unsigned char successes = 0;
+
+  for(addressCounter = 0; addressCounter < 128; addressCounter++){
+    Status result = I2C_SendBytes(addressCounter, nullByte, 1);
+    if(result == SUCCESS){
+      successfulAddresses[successes] = addressCounter;
+      successes++;
+    }
+  }
+
+  char strDevicesConnected[36];
+  sprintf(strDevicesConnected, "%d devices connected to i2c bus\r\n", successes);
+  print(strDevicesConnected);
+
+  unsigned char index;
+  for(index = 0; index < successes; index++){
+    sprintf(strDevicesConnected, "I2C device at address 0x%x\r\n", successfulAddresses[index]);
+    print(strDevicesConnected);
+  }
+
+  Delay(1000);
+
+  print("Start LCD\r\n");
+  LCD_Init();
+  LCD_Clear_Display();
+  unsigned char stringHelloWorld[12] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF, 0xA0, 0xD7, 0xCF, 0xD2, 0xCC, 0xC4, 0xA1};
+  LCD_Write_Chars(stringHelloWorld, 12);
+  Delay(1000);
+  LCD_Clear_Display();
+  Delay(1000);
+  unsigned char stringHello[5] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF};
+  unsigned char stringWorld[5] = {0xD7, 0xCF, 0xD2, 0xCC, 0xC4};
+  LCD_Write_Chars(stringHello, 5);
+  LCD_Write_Address(0x40);
+  LCD_Write_Chars(stringWorld, 5);
+  Delay(1000);
+  LCD_Clear_Display();
+  print("End LCD\r\n");
+
+  Delay(1000);
+
+  LCD_Clear_Display();
+  print("Start Keypad\r\n");
+  char toprint[4] = " \r\n";
+  int i;
+  for(i = 0; i < 16; i++){
+    toprint[0] = KEYPAD_ReadKey();
+    print(toprint);
+    unsigned char forLCD[1];
+    forLCD[0] = LCD_EncodeASCII(toprint[0]);
+    LCD_Write_Chars(forLCD, 1);
+  }
+  Delay(1000);
+  LCD_Clear_Display();
+  print("Finished Keypad\r\n");
+  print("Finished DEMO\r\n");
+
+  #endif
+
   return 0;
+
 }
