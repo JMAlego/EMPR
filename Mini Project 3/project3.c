@@ -4,10 +4,11 @@
 #include "lpc17xx_adc.h"
 #include "lpc17xx_dac.h"
 #include "lpc17xx_pinsel.h"
+#include "lpc17xx_pwm.h"
 #include <stdio.h>
 #include <math.h>
 
-#define STAGE2
+#define STAGE3
 
 #define NIBBLE_TO_BINARY(byte)  \
   (byte & 0x08 ? '1' : '0'), \
@@ -339,19 +340,34 @@ void initDAC(){
   Delay(20);
 }
 
+void initPWM(){
+  PINSEL_CFG_Type PinCfg;
+  PinCfg.Funcnum = 1;
+  PinCfg.OpenDrain = 0;
+  PinCfg.Pinmode = 0;
+
+  PinCfg.Portnum = 2;
+  PinCfg.Pinnum = 0;
+  PINSEL_ConfigPin(&PinCfg);
+
+  PWM_Init(LPC_PWM1, );
+
+}
+
 double ADC_To_Voltage(uint16_t adcOutput){
   return ((double) adcOutput)/((double) 4095) * 3;
 }
 
-uint16_t waveform_generator(double amplitude, uint32_t frequency){
+uint16_t waveform_generator(double amplitude, double frequency){
   double peaktopeak = ((double) 2) * amplitude;
-  double count = ((double) (SysTickCnt % 1000)) / ((double) 1000);
+  int period = (int)(1000 * ((double) 1 / frequency));
+  double count = ((double) (SysTickCnt % period)) / ((double) period);
   count = count * (double) 2 * PI;
   double x = sin(count);
   x = x + (double) 1;
   x = x / (double) 2;
   x = peaktopeak * x;
-  return (uint16_t) (x * (1023 / peaktopeak));
+  return (uint16_t) (x * (1023 / 3.33));
 }
 
 int main(){
@@ -378,10 +394,37 @@ int main(){
   #ifdef STAGE2
 
   initDAC();
+  int i;
   while(1){
-    DAC_UpdateValue(LPC_DAC, waveform_generator(1.5, 1000));
+    for(i=0; i < 1000; i++){
+      DAC_UpdateValue(LPC_DAC, waveform_generator(1, 1));
+      Delay(10);
+    }
+    for(i=0; i < 1000; i++){
+      DAC_UpdateValue(LPC_DAC, waveform_generator(1.5, 0.5));
+      Delay(10);
+    }
+    for(i=0; i < 1000; i++){
+      DAC_UpdateValue(LPC_DAC, waveform_generator(0.5, 1.5));
+      Delay(10);
+    }
+  }
+
+  #endif
+
+  #ifdef STAGE3
+  initDAC();
+  initADC();
+  print("Starting...");
+  while(1){
+    DAC_UpdateValue(LPC_DAC, ADC_ChannelGetData(LPC_ADC, 0) / 4 * 0.909);
     Delay(10);
   }
+
+  #endif
+
+  #ifdef STAGE4
+
 
   #endif
 
