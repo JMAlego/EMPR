@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#define STAGE3
+#define STAGE4
 
 #define NIBBLE_TO_BINARY(byte)  \
   (byte & 0x08 ? '1' : '0'), \
@@ -350,8 +350,28 @@ void initPWM(){
   PinCfg.Pinnum = 0;
   PINSEL_ConfigPin(&PinCfg);
 
-  PWM_Init(LPC_PWM1, );
-
+  PWM_TIMERCFG_Type PWMCfgDat;
+  PWM_MATCHCFG_Type PWMMatchCfgDat;
+  PWMCfgDat.PrescaleOption = PWM_TIMER_PRESCALE_TICKVAL;
+  PWMCfgDat.PrescaleValue = 1;
+  PWM_Init(LPC_PWM1, PWM_MODE_TIMER, (void *) &PWMCfgDat);
+  PWM_MatchUpdate(LPC_PWM1, 0, 256, PWM_MATCH_UPDATE_NOW);
+  PWMMatchCfgDat.IntOnMatch = DISABLE;
+  PWMMatchCfgDat.MatchChannel = 0;
+  PWMMatchCfgDat.ResetOnMatch = ENABLE;
+  PWMMatchCfgDat.StopOnMatch = DISABLE;
+  PWM_ConfigMatch(LPC_PWM1, &PWMMatchCfgDat);
+  PWM_ChannelConfig(LPC_PWM1, 1, PWM_CHANNEL_SINGLE_EDGE);
+  PWM_MatchUpdate(LPC_PWM1, 1, 256, PWM_MATCH_UPDATE_NOW);
+  PWMMatchCfgDat.IntOnMatch = DISABLE;
+  PWMMatchCfgDat.MatchChannel = 1;
+  PWMMatchCfgDat.ResetOnMatch = DISABLE;
+  PWMMatchCfgDat.StopOnMatch = DISABLE;
+  PWM_ConfigMatch(LPC_PWM1, &PWMMatchCfgDat);
+  PWM_ChannelCmd(LPC_PWM1, 1, ENABLE);
+  PWM_ResetCounter(LPC_PWM1);
+  PWM_CounterCmd(LPC_PWM1, ENABLE);
+  PWM_Cmd(LPC_PWM1, ENABLE);
 }
 
 double ADC_To_Voltage(uint16_t adcOutput){
@@ -424,6 +444,11 @@ int main(){
   #endif
 
   #ifdef STAGE4
+  initPWM();
+  PWM_MATCHCFG_Type MtchCfg;
+  MtchCfg.IntOnMatch = DISABLE;
+  MtchCfg.MatchChannel = 0;
+  MtchCfg.ResetOnMatch = DISABLE;
 
 
   #endif
