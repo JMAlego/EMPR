@@ -11,6 +11,7 @@
   - [1.2. Mini Project 2](#12-mini-project-2)
   - [1.3. Mini Project 3](#13-mini-project-3)
 - [2. Main Project](#2-main-project)
+- [3. Libraries](#3-libraries)
 
 ## 1. Mini Projects
 
@@ -39,9 +40,22 @@ ADC, DAC and PWM project. Must fulfil the following:
  - Read and print out an analogue voltage via the ADC (Max v3.3).
  - Generate a sine wave using the DAC, the amplitude and frequency should be varied over time (every 10 seconds).
  - Mirror an input sine wave using the ADC to read and the DAC to write.
- - Output a waveform on the PWM, using single edge mode and cycling through the full range of changes in pulse width 5 times. A single cycle from minimum pulse width to maximum should take 5 seconds and should be displayed on the oscillscope. It should use some form of timer on the MCU to change the pulse width at regular intervals, not a delay loop.
+ - Output a waveform on the PWM, using single edge mode and cycling through the full range of changes in pulse width 5 times. A single cycle from minimum pulse width to maximum should take 5 seconds and should be displayed on the oscilloscope. It should use some form of timer on the MCU to change the pulse width at regular intervals, not a delay loop.
  - Optionally: Build a distance measuring device, using a Sharp GP2Y0A21YK0F infra-red range sensor. Printing the sensors output voltage and/or measured distance to the LCD screen.
 
 ## 2. Main Project
 
 *Currently unknown.*
+
+## 3. Libraries
+
+A set of libraries created from the code of the Mini Projects to simplify the development of the Main Project.
+
+  - **Constants** - Generic useful constants
+  - **Utilities** - Generic useful tools
+  - **Serial** - Tools for interfacing with a computer via UART
+  - **Keypad** - Tools for working with the keypad on the expansion board via I2C
+  - **LCD** - Tools for writing to the LCD on the expansion board via I2C
+  - **I2C** - Tools for interfacing with I2C
+  - **DAC** - Tools for controlling the DAC on chip
+  - **ADC** - Tools for controlling the ADC on chip
