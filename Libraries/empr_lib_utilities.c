@@ -54,6 +54,21 @@ uint32_t EL_UTIL_StringToUint32(uint8_t *string)
   return output;
 }
 
+uint64_t EL_UTIL_StringToUint64(uint8_t *string)
+{
+  size_t count = 0;
+  uint64_t output = 0;
+  while (string[count] != '\0')
+    count++;
+  size_t i = 0;
+  while (i < count)
+  {
+    output += pow(10, count - i - 1) * (double)EL_UTIL_ASCIINumberCharacterToNumber(string[i]);
+    i++;
+  }
+  return output;
+}
+
 void EL_UTIL_ByteCopyWithNullTerminator(uint8_t *to_string, const uint8_t *from_string)
 {
   size_t i = 0;
