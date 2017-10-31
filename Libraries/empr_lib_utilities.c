@@ -10,7 +10,7 @@ void SysTick_Handler(void)
 
 void Delay(uint32_t tick)
 {
-  uint32_t systickcnt;
+  uint64_t systickcnt;
   systickcnt = SysTickCnt;
   while ((SysTickCnt - systickcnt) < tick)
     ;

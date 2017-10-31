@@ -10,7 +10,7 @@
       (byte & 0x02 ? '1' : '0'), \
       (byte & 0x01 ? '1' : '0')
 
-volatile uint32_t SysTickCnt;
+volatile uint64_t SysTickCnt;
 
 void SysTick_Handler(void);
 void Delay(uint32_t tick);
