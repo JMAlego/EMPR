@@ -7,7 +7,7 @@
 #include "empr_lib_utilities.h"
 
 Status EL_LCD_Init(void);
-Status EL_LCD_WriteChar(unsigned char character);
+Status EL_LCD_WriteChar(uint8_t character);
 Status EL_LCD_WriteChars(uint8_t * characters, size_t length);
 Status EL_LCD_WriteAddress(uint8_t address);
 Status EL_LCD_ClearDisplay(void);

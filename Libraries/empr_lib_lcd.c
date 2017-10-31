@@ -10,7 +10,7 @@ Status EL_LCD_Init(void){
   return result;
 }
 
-Status EL_LCD_WriteChar(unsigned char character){
+Status EL_LCD_WriteChar(uint8_t character){
   uint8_t data[2];
   data[0] = 0x40;
   data[1] = character;

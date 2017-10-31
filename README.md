@@ -52,6 +52,7 @@ ADC, DAC and PWM project. Must fulfil the following:
 A set of libraries created from the code of the Mini Projects to simplify the development of the Main Project.
 
   - **Constants** - Generic useful constants
+  - **Common** - Common requirements
   - **Utilities** - Generic useful tools
   - **Serial** - Tools for interfacing with a computer via UART
   - **Keypad** - Tools for working with the keypad on the expansion board via I2C
