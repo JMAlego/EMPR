@@ -5,10 +5,11 @@
 #include "lpc17xx_dac.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_pwm.h"
+#include "lpc17xx_rit.h"
 #include <stdio.h>
 #include <math.h>
 
-#define STAGE4
+#define DEMO
 
 #define NIBBLE_TO_BINARY(byte)  \
   (byte & 0x08 ? '1' : '0'), \
@@ -40,6 +41,7 @@ unsigned char KEYPAD_ReadReset = 4;
 volatile unsigned long SysTickCnt;
 
 void SysTick_Handler (void);
+void RIT_IRQHandler(void);
 
 void Delay (unsigned long tick);
 
@@ -340,14 +342,18 @@ void initDAC(){
   Delay(20);
 }
 
-void initPWM(){
+void initPWM(uint8_t channel, int start, int reset){
+  if(channel>6 || channel < 1){
+      print("PWM channel must be >0 and <7\r\n");
+      return;
+  }
   PINSEL_CFG_Type PinCfg;
   PinCfg.Funcnum = 1;
   PinCfg.OpenDrain = 0;
   PinCfg.Pinmode = 0;
 
   PinCfg.Portnum = 2;
-  PinCfg.Pinnum = 0;
+  PinCfg.Pinnum = channel-1;
   PINSEL_ConfigPin(&PinCfg);
 
   PWM_TIMERCFG_Type PWMCfgDat;
@@ -355,16 +361,16 @@ void initPWM(){
   PWMCfgDat.PrescaleOption = PWM_TIMER_PRESCALE_TICKVAL;
   PWMCfgDat.PrescaleValue = 1;
   PWM_Init(LPC_PWM1, PWM_MODE_TIMER, (void *) &PWMCfgDat);
-  PWM_MatchUpdate(LPC_PWM1, 0, 256, PWM_MATCH_UPDATE_NOW);
+  PWM_MatchUpdate(LPC_PWM1, 0, reset, PWM_MATCH_UPDATE_NOW);
   PWMMatchCfgDat.IntOnMatch = DISABLE;
-  PWMMatchCfgDat.MatchChannel = 0;
+  PWMMatchCfgDat.MatchChannel = (channel-1)*2;
   PWMMatchCfgDat.ResetOnMatch = ENABLE;
   PWMMatchCfgDat.StopOnMatch = DISABLE;
   PWM_ConfigMatch(LPC_PWM1, &PWMMatchCfgDat);
-  PWM_ChannelConfig(LPC_PWM1, 1, PWM_CHANNEL_SINGLE_EDGE);
-  PWM_MatchUpdate(LPC_PWM1, 1, 256, PWM_MATCH_UPDATE_NOW);
+  //PWM_ChannelConfig(LPC_PWM1, 1, PWM_CHANNEL_SINGLE_EDGE);
+  PWM_MatchUpdate(LPC_PWM1, 1, start, PWM_MATCH_UPDATE_NOW);
   PWMMatchCfgDat.IntOnMatch = DISABLE;
-  PWMMatchCfgDat.MatchChannel = 1;
+  PWMMatchCfgDat.MatchChannel = ((channel-1)*2 + 1);
   PWMMatchCfgDat.ResetOnMatch = DISABLE;
   PWMMatchCfgDat.StopOnMatch = DISABLE;
   PWM_ConfigMatch(LPC_PWM1, &PWMMatchCfgDat);
@@ -372,6 +378,16 @@ void initPWM(){
   PWM_ResetCounter(LPC_PWM1);
   PWM_CounterCmd(LPC_PWM1, ENABLE);
   PWM_Cmd(LPC_PWM1, ENABLE);
+}
+
+void setPWMStart(uint8_t channel, int start){
+  PWM_MATCHCFG_Type PWMMatchCfgDat;
+  PWM_MatchUpdate(LPC_PWM1, 1, start, PWM_MATCH_UPDATE_NOW);
+  PWMMatchCfgDat.IntOnMatch = DISABLE;
+  PWMMatchCfgDat.MatchChannel = ((channel-1)*2 + 1);
+  PWMMatchCfgDat.ResetOnMatch = DISABLE;
+  PWMMatchCfgDat.StopOnMatch = DISABLE;
+  PWM_ConfigMatch(LPC_PWM1, &PWMMatchCfgDat);
 }
 
 double ADC_To_Voltage(uint16_t adcOutput){
@@ -389,6 +405,31 @@ uint16_t waveform_generator(double amplitude, double frequency){
   x = peaktopeak * x;
   return (uint16_t) (x * (1023 / 3.33));
 }
+
+volatile unsigned int PWMCounter = 0;
+volatile int8_t PWMDirection = 1;
+volatile uint8_t RIT_Mode = 0;
+
+void RIT_IRQHandler(void){
+  RIT_GetIntStatus(LPC_RIT);
+  if(RIT_Mode == 4){
+    setPWMStart(1, PWMCounter);
+    if(PWMCounter == 256){
+      PWMDirection = -1;
+    }
+    if(PWMCounter == 0){
+      PWMDirection = 1;
+    }
+    PWMCounter += PWMDirection;
+  }
+  if(RIT_Mode == 3){
+    DAC_UpdateValue(LPC_DAC, ADC_ChannelGetData(LPC_ADC, 0) / 4 * 0.909);
+  }
+  if(RIT_Mode == 2){
+    DAC_UpdateValue(LPC_DAC, waveform_generator(1, 1));
+  }
+}
+
 
 int main(){
   SysTick_Config(SystemCoreClock/1000 - 1);
@@ -444,14 +485,37 @@ int main(){
   #endif
 
   #ifdef STAGE4
-  initPWM();
-  PWM_MATCHCFG_Type MtchCfg;
-  MtchCfg.IntOnMatch = DISABLE;
-  MtchCfg.MatchChannel = 0;
-  MtchCfg.ResetOnMatch = DISABLE;
-
-
+  print("Starting PWM\r\n");
+  initPWM(1, 0, 256);
+  print("Stopping PWM\r\n");
+  RIT_Init(LPC_RIT);
+  RIT_TimerConfig(LPC_RIT, 20);
+  NVIC_EnableIRQ(RIT_IRQn);
   #endif
 
+
+  #ifdef DEMO
+  print("Starting DEMO\r\n");
+  RIT_Init(LPC_RIT);
+  NVIC_EnableIRQ(RIT_IRQn);
+  RIT_TimerConfig(LPC_RIT, 1);
+  print("Starting Stage 2\r\n");
+  initDAC();
+  RIT_Mode = 2;
+  KEYPAD_ReadKey();
+  print("End of Stage 2\r\n");
+  print("Starting Stage 3\r\n");
+  initADC();
+  RIT_Mode = 3;
+  KEYPAD_ReadKey();
+  print("Ending Stage 3\r\n");
+  print("Starting Stage 4\r\n");
+  RIT_TimerConfig(LPC_RIT, 20);
+  initPWM(1, 0, 256);
+  RIT_Mode = 4;
+  KEYPAD_ReadKey();
+  print("Ending Stage 4 & DEMO\r\n");
+  #endif
+  while(1);
   return 0;
 }
