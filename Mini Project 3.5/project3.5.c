@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#define DEMO
+#define STAGE5
 
 #define NIBBLE_TO_BINARY(byte)  \
   (byte & 0x08 ? '1' : '0'), \
@@ -319,11 +319,11 @@ void initADC(){
   PinCfg.Pinmode = 0;
 
   PinCfg.Portnum = 0;
-  PinCfg.Pinnum = 23;
+  PinCfg.Pinnum = 24;
   PINSEL_ConfigPin(&PinCfg);
 
   ADC_Init(LPC_ADC, 200000);
-  ADC_ChannelCmd(LPC_ADC, ADC_CHANNEL_0, ENABLE);
+  ADC_ChannelCmd(LPC_ADC, ADC_CHANNEL_1, ENABLE);
   ADC_BurstCmd(LPC_ADC,ENABLE);
   Delay(20);
 }
@@ -406,6 +406,10 @@ uint16_t waveform_generator(double amplitude, double frequency){
   return (uint16_t) (x * (1023 / 3.33));
 }
 
+double SENSOR_VoltageToDistance(double voltage){
+  return (1.72955 * pow(voltage, 4)) - (19.0498 * pow(voltage, 3)) + (76.172 * pow(voltage, 2)) - (136.629 * voltage) + 104.683;
+}
+
 volatile unsigned int PWMCounter = 0;
 volatile int8_t PWMDirection = 1;
 volatile uint8_t RIT_Mode = 0;
@@ -452,29 +456,9 @@ int main(){
   Delay(20);
   #endif
 
-  #ifdef STAGE2
-
-  initDAC();
-  int i;
-  while(1){
-    for(i=0; i < 1000; i++){
-      DAC_UpdateValue(LPC_DAC, waveform_generator(1, 1));
-      Delay(10);
-    }
-    for(i=0; i < 1000; i++){
-      DAC_UpdateValue(LPC_DAC, waveform_generator(1.5, 0.5));
-      Delay(10);
-    }
-    for(i=0; i < 1000; i++){
-      DAC_UpdateValue(LPC_DAC, waveform_generator(0.5, 1.5));
-      Delay(10);
-    }
-  }
-
-  #endif
 
   #ifdef STAGE3
-  initDAC();
+  initDAC();distance
   initADC();
   print("Starting...");
   while(1){
@@ -485,38 +469,30 @@ int main(){
   #endif
 
   #ifdef STAGE4
-  print("Starting PWM\r\n");
-  initPWM(1, 0, 256);
-  print("Stopping PWM\r\n");
   RIT_Init(LPC_RIT);
   RIT_TimerConfig(LPC_RIT, 20);
   NVIC_EnableIRQ(RIT_IRQn);
   #endif
 
-
-  #ifdef DEMO
-  print("Starting DEMO\r\n");
-  RIT_Init(LPC_RIT);
-  NVIC_EnableIRQ(RIT_IRQn);
-  RIT_TimerConfig(LPC_RIT, 1);
-  print("Starting Stage 2\r\n");
-  initDAC();
-  RIT_Mode = 2;
-  KEYPAD_ReadKey();
-  print("End of Stage 2\r\n");
-  print("Starting Stage 3\r\n");
+  #ifdef STAGE5
   initADC();
-  RIT_Mode = 3;
-  KEYPAD_ReadKey();
-  print("Ending Stage 3\r\n");
-  print("Starting Stage 4\r\n");
-  RIT_TimerConfig(LPC_RIT, 20);
-  initPWM(1, 0, 256);
-  RIT_Mode = 4;
-  KEYPAD_ReadKey();
-  print("Ending Stage 4 & DEMO\r\n");
+  print("Starting distance sensor\r\n");
+  print("Press _ on keypad to calibrate\r\n");
+  print("Press _ on keypad to start display mode (constant)\r\n");
+  print("Press _ on keypad to start display mode (run)\r\n");
+  double voltage;
+  double distance;
+  char out[40];
+  while(1){
+    voltage = ADC_ChannelGetData(LPC_ADC, 0) / 4 * 0.909;
+    distance = SENSOR_VoltageToDistance(voltage);
+    sprintf(out, "%lf cm\r\n", distance);
+    print(out);
+    sprintf(out, "%lf volts\r\n", voltage);
+    print(out);
+    Delay(100);
+  }
   #endif
-
 
   while(1);
   return 0;
