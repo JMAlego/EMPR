@@ -333,7 +333,7 @@ int main(void)
       successfulAddresses[successes] = addressCounter;
       successes++;
     }
-  }I2C_SendBytes(LCD_ADDRESS, data, length * 2);
+  }
 
   char strDevicesConnected[36];
   sprintf(strDevicesConnected, "%d devices connected to i2c bus\r\n", successes);
@@ -408,7 +408,7 @@ int main(void)
   unsigned char buffer_pointer = 0;
   char input = '\0';
   char last_input_was_number = 0;
-  char error_string[17];
+  char error_string[17] = "";
   LCD_Clear_Display();
 
   while(1){

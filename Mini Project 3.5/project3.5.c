@@ -458,7 +458,7 @@ int main(){
 
 
   #ifdef STAGE3
-  initDAC();distance
+  initDAC();
   initADC();
   print("Starting...");
   while(1){
@@ -476,18 +476,28 @@ int main(){
 
   #ifdef STAGE5
   initADC();
+  LCD_Clear_Display();
   print("Starting distance sensor\r\n");
   print("Press _ on keypad to calibrate\r\n");
   print("Press _ on keypad to start display mode (constant)\r\n");
   print("Press _ on keypad to start display mode (run)\r\n");
   double voltage;
   double distance;
+  double raw_adc;
   char out[40];
+  char lcd_out[40];
   while(1){
-    voltage = ADC_ChannelGetData(LPC_ADC, 0) / 4 * 0.909;
+    LCD_Write_Address(0x00);
+    raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+    voltage = raw_adc / 4096 * 3.3;
     distance = SENSOR_VoltageToDistance(voltage);
+    //sprintf(out, "%lf raw\r\n", raw_adc);
+    //print(out);
     sprintf(out, "%lf cm\r\n", distance);
+    sprintf(lcd_out, "%lfcm             ", distance);
+    LCD_EncodeASCIIString(lcd_out);
     print(out);
+    LCD_Write_Chars(lcd_out, sizeofStr(out) - 3);
     sprintf(out, "%lf volts\r\n", voltage);
     print(out);
     Delay(100);
