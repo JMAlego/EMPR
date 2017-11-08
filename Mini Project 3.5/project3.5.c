@@ -171,6 +171,23 @@ char KEYPAD_ReadKey(){
   return return_char;
 }
 
+char KEYPAD_CheckKey(){
+  char current_row = 0;
+  char return_char = '\0';
+  while(current_row < 4){
+    KEYPAD_WriteRow(current_row);
+    char col_result = KEYPAD_ReadCol();
+    if(col_result == 4 && KEYPAD_ReadReset == current_row){
+      KEYPAD_ReadReset = 4;
+    }else if (KEYPAD_ReadReset == 4 && col_result != 4){
+      return_char = keypad[(int) current_row][(int) col_result];
+      KEYPAD_ReadReset = current_row;
+    }
+    current_row++;
+  }
+  return return_char;
+}
+
 void initI2C(void){
   PINSEL_CFG_Type PinCfg;
   PinCfg.Funcnum = 3;
@@ -410,6 +427,101 @@ double SENSOR_VoltageToDistance(double voltage){
   return (1.72955 * pow(voltage, 4)) - (19.0498 * pow(voltage, 3)) + (76.172 * pow(voltage, 2)) - (136.629 * voltage) + 104.683;
 }
 
+void SENSOR_Calibrate(double samples[]){
+  print("CALIBRATION MODE SELECTED\r\n");
+  print("When prompted, place an object at the distance specified\r\n");
+  print("Then push any key on the keypad to continue\r\n");
+
+  double raw_adc;
+  double voltage;
+  //uint8_t i;
+  char output[20];
+
+  print("80cm\r\n");
+  KEYPAD_ReadKey();
+  raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+  voltage = raw_adc / 4096 * 3.3;
+  samples[0] = voltage;
+  sprintf(output, "READ:%lfv\r\n", voltage);
+  print(output);
+
+  print("40cm\r\n");
+  KEYPAD_ReadKey();
+  raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+  voltage = raw_adc / 4096 * 3.3;
+  samples[1] = voltage;
+  sprintf(output, "READ:%lfv\r\n", voltage);
+  print(output);
+
+  print("10cm\r\n");
+  KEYPAD_ReadKey();
+  raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+  voltage = raw_adc / 4096 * 3.3;
+  samples[2] = voltage;
+  sprintf(output, "READ:%lfv\r\n", voltage);
+  print(output);
+
+  print("7cm\r\n");
+  KEYPAD_ReadKey();
+  raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+  voltage = raw_adc / 4096 * 3.3;
+  samples[3] = voltage;
+  sprintf(output, "READ:%lfv\r\n", voltage);
+  print(output);
+
+  print("5cm\r\n");
+  KEYPAD_ReadKey();
+  raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+  voltage = raw_adc / 4096 * 3.3;
+  samples[4] = voltage;
+  sprintf(output, "READ:%lfv\r\n", voltage);
+  print(output);
+
+  print("DONE!\r\n");
+
+
+  /*for(i = 0; i < 16; i++){
+    sprintf(output, "%d cm", (i+1)*5);
+    KEYPAD_ReadKey();
+    raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+    voltage = raw_adc / 4096 * 3.3;
+    samples[i] = voltage;
+  }*/
+
+}
+
+double SENSOR_VoltageToDistance2(double samples[], double voltage){
+  double m;
+  double inv_distance;
+  double c = 0;
+  double distance;
+  double distances[5] = {1/80.0, 1/40.0, 1/10.0, 1/7.0, 1/5.0};
+  m = 0;
+
+  if(voltage <= samples[0]){//80
+    distance = 80;
+  } else if (voltage > samples[4]){//5
+    distance = 5;
+  } else if (voltage >= samples[3] && voltage < samples[4]) {
+    m = (samples[4]-samples[3])/(distances[4]-distances[3]);
+    c = samples[4] - distances[4] * m;
+  }else if (voltage >= samples[2] && voltage < samples[3]) {
+    m = (samples[3]-samples[2])/(distances[3]-distances[2]);
+    c = samples[3] - distances[3] * m;
+  }else if (voltage >= samples[1] && voltage < samples[2]) {
+    m = (samples[2]-samples[1])/(distances[2]-distances[1]);
+    c = samples[2] - distances[2] * m;
+  }else if (voltage >= samples[0] && voltage < samples[1]) {
+    m = (samples[1]-samples[0])/(distances[1]-distances[0]);
+    c = samples[1] - distances[1] * m;
+  }
+  if(m!=0){
+    inv_distance = (voltage-c)/m;
+    distance = 1/inv_distance;
+  }
+  return distance;
+}
+
 volatile unsigned int PWMCounter = 0;
 volatile int8_t PWMDirection = 1;
 volatile uint8_t RIT_Mode = 0;
@@ -477,30 +589,69 @@ int main(){
   #ifdef STAGE5
   initADC();
   LCD_Clear_Display();
+
   print("Starting distance sensor\r\n");
   print("Press _ on keypad to calibrate\r\n");
   print("Press _ on keypad to start display mode (constant)\r\n");
   print("Press _ on keypad to start display mode (run)\r\n");
+
   double voltage;
   double distance;
   double raw_adc;
   char out[40];
   char lcd_out[40];
+  double samples[5];
+  SENSOR_Calibrate(samples);
   while(1){
-    LCD_Write_Address(0x00);
-    raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
-    voltage = raw_adc / 4096 * 3.3;
-    distance = SENSOR_VoltageToDistance(voltage);
-    //sprintf(out, "%lf raw\r\n", raw_adc);
-    //print(out);
-    sprintf(out, "%lf cm\r\n", distance);
-    sprintf(lcd_out, "%lfcm             ", distance);
-    LCD_EncodeASCIIString(lcd_out);
-    print(out);
-    LCD_Write_Chars(lcd_out, sizeofStr(out) - 3);
-    sprintf(out, "%lf volts\r\n", voltage);
-    print(out);
-    Delay(100);
+    print("---START MENU---\r\n");
+    print("To recalibrate press A\r\n");
+    print("To take single measure press B\r\n");
+    print("To take rolling measure press C\r\n");
+    print("----END MENU----\r\n");
+    char key = KEYPAD_ReadKey();
+    switch (key) {
+      case 'A':
+        SENSOR_Calibrate(samples);
+        break;
+      case 'B':
+        LCD_Write_Address(0x00);
+        raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+        voltage = raw_adc / 4096 * 3.3;
+        distance = SENSOR_VoltageToDistance2(samples, voltage);
+        //sprintf(out, "%lf raw\r\n", raw_adc);
+        //print(out);
+        sprintf(out, "%lf cm\r\n", distance);
+        sprintf(lcd_out, "%lfcm             ", distance);
+        LCD_EncodeASCIIString(lcd_out);
+        print(out);
+        LCD_Write_Chars((unsigned char *) lcd_out, sizeofStr(out) - 3);
+        sprintf(out, "%lf volts\r\n", voltage);
+        print(out);
+        Delay(100);
+        break;
+      case 'C':
+        while(1){
+          LCD_Write_Address(0x00);
+          raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
+          voltage = raw_adc / 4096 * 3.3;
+          distance = SENSOR_VoltageToDistance2(samples, voltage);
+          //sprintf(out, "%lf raw\r\n", raw_adc);
+          //print(out);
+          sprintf(out, "%lf cm\r\n", distance);
+          sprintf(lcd_out, "%lfcm             ", distance);
+          LCD_EncodeASCIIString(lcd_out);
+          print(out);
+          LCD_Write_Chars((unsigned char *) lcd_out, sizeofStr(out) - 3);
+          sprintf(out, "%lf volts\r\n", voltage);
+          print(out);
+          if(KEYPAD_CheckKey() != '\0')
+            break;
+          Delay(100);
+        }
+      break;
+      default:
+      break;
+    }
   }
   #endif
 
