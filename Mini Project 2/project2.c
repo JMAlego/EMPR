@@ -11,7 +11,7 @@
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0')
 
-#define STAGE4
+#define STAGE1
 
 #define ALL_LEDS 0xB40000
 #define LED1 0x040000
@@ -22,6 +22,7 @@
 #define LCD_ADDRESS 0x3b
 #define EIGHT_SEG_ADDRESS 0x38
 #define KEYPAD_ADDRESS 0x21
+
 
 const int leds[4] = {LED1, LED2, LED3, LED4};
 
