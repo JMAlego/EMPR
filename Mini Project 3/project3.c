@@ -179,6 +179,7 @@ void initI2C(void){
 
   PinCfg.Portnum = 0;
   PinCfg.Pinnum = 0;
+  //Real pin 9
   PINSEL_ConfigPin(&PinCfg);
 
   PinCfg.Pinnum = 1;
@@ -320,9 +321,10 @@ void initADC(){
 
   PinCfg.Portnum = 0;
   PinCfg.Pinnum = 23;
+  //Real pin 15
   PINSEL_ConfigPin(&PinCfg);
 
-  ADC_Init(LPC_ADC, 200000);
+  ADC_Init(LPC_ADC, 200000); //max speed
   ADC_ChannelCmd(LPC_ADC, ADC_CHANNEL_0, ENABLE);
   ADC_BurstCmd(LPC_ADC,ENABLE);
   Delay(20);
@@ -336,6 +338,7 @@ void initDAC(){
 
   PinCfg.Portnum = 0;
   PinCfg.Pinnum = 26;
+  //Real pin 18
   PINSEL_ConfigPin(&PinCfg);
 
   DAC_Init(LPC_DAC);
@@ -354,6 +357,7 @@ void initPWM(uint8_t channel, int start, int reset){
 
   PinCfg.Portnum = 2;
   PinCfg.Pinnum = channel-1;
+  //Real pin 26 to 21
   PINSEL_ConfigPin(&PinCfg);
 
   PWM_TIMERCFG_Type PWMCfgDat;
@@ -409,6 +413,7 @@ uint16_t waveform_generator(double amplitude, double frequency){
 volatile unsigned int PWMCounter = 0;
 volatile int8_t PWMDirection = 1;
 volatile uint8_t RIT_Mode = 0;
+volatile uint8_t sine_mode = 0;
 
 void RIT_IRQHandler(void){
   RIT_GetIntStatus(LPC_RIT);
@@ -426,7 +431,18 @@ void RIT_IRQHandler(void){
     DAC_UpdateValue(LPC_DAC, ADC_ChannelGetData(LPC_ADC, 0) / 4 * 0.909);
   }
   if(RIT_Mode == 2){
-    DAC_UpdateValue(LPC_DAC, waveform_generator(1, 1));
+    if(SysTickCnt % 10000 == 0){
+      sine_mode = (sine_mode + 1) % 3;
+    }
+    if(sine_mode == 0){
+      DAC_UpdateValue(LPC_DAC, waveform_generator(1, 1));
+    }
+    if(sine_mode == 1){
+      DAC_UpdateValue(LPC_DAC, waveform_generator(1.5, 0.5));
+    }
+    if(sine_mode == 2){
+      DAC_UpdateValue(LPC_DAC, waveform_generator(0.5, 1.5));
+    }
   }
 }
 
